@@ -80,7 +80,7 @@ function Home() {
         {s.loading && <p className="mt-8 text-center text-muted-foreground">Stock load ho raha hai…</p>}
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((p) => (
-            <article key={p.id} className="group overflow-hidden rounded-3xl border border-border bg-card transition hover:-translate-y-1 hover:shadow-[var(--shadow-soft)]">
+            <article key={p.id} onClick={() => setDetail(p)} className="group cursor-pointer overflow-hidden rounded-3xl border border-border bg-card transition hover:-translate-y-1 hover:shadow-[var(--shadow-soft)]">
               <div className="relative h-44" style={{ background: p.color }}>
                 <div className="tile-grid absolute inset-0 opacity-40" />
                 <span className="absolute left-4 top-4 rounded-full bg-background/90 px-3 py-1 text-xs">{p.category}</span>
@@ -91,7 +91,7 @@ function Home() {
                 <h3 className="mt-1 font-display text-xl">{p.name}</h3>
                 <div className="mt-4 flex items-center justify-between">
                   <span className="font-semibold">₹{p.price}<span className="text-xs font-normal text-muted-foreground"> /peti</span></span>
-                  <button disabled={!store || p.stock === 0} onClick={() => setOrdering(p)} className="rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-40">{store ? "Order" : "Login to order"}</button>
+                  <span className="text-sm text-primary underline underline-offset-4">Detail dekhein</span>
                 </div>
               </div>
             </article>
@@ -99,7 +99,8 @@ function Home() {
           {list.length === 0 && !s.loading && <p className="col-span-full py-16 text-center text-muted-foreground">Koi tile nahi mili.</p>}
         </div>
       </main>
-      {ordering && store && <OrderDialog p={ordering} onClose={() => setOrdering(null)} />}
+      {detail && !ordering && <ProductDetail p={detail} canOrder={!!store} onOrder={() => setOrdering(detail)} onClose={() => setDetail(null)} />}
+      {ordering && store && <OrderDialog p={ordering} onClose={() => { setOrdering(null); setDetail(null); }} />}
     </div>
   );
 }
