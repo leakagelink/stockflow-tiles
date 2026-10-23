@@ -36,7 +36,7 @@ export const getCatalog = createServerFn({ method: "GET" }).handler(async (): Pr
     db.from("orders").select("id,store_id,store_name,product_id,product_name,model,qty,created_at").order("created_at", { ascending: false }),
   ]);
   const err = products.error || cats.error || stores.error || orders.error;
-  if (err) throw new Error("Data load nahi hua: " + err.message);
+  if (err) throw new Error("Unable to load data: " + err.message);
   return {
     products: (products.data ?? []).map((p) => ({ ...p, price: Number(p.price) })),
     categories: (cats.data ?? []).map((c) => c.name),
@@ -96,8 +96,8 @@ export type AdminPayload =
 async function adminDb(pin: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin.from("app_settings").select("value").eq("key", "admin_pin").single();
-  if (error) throw new Error("Admin PIN setting nahi mili");
-  if (!data || data.value !== pin) throw new Error("Galat admin PIN");
+  if (error) throw new Error("Administrator access is unavailable");
+  if (!data || data.value !== pin) throw new Error("Incorrect admin PIN");
   return supabaseAdmin;
 }
 
@@ -106,7 +106,7 @@ export const adminVerify = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row, error } = await supabaseAdmin.from("app_settings").select("value").eq("key", "admin_pin").single();
-    if (error) throw new Error("Admin PIN setting nahi mili");
+    if (error) throw new Error("Administrator access is unavailable");
     return row?.value === data.pin;
   });
 
@@ -165,7 +165,7 @@ export const adminAction = createServerFn({ method: "POST" })
       const { data: users, error: uErr } = await db.auth.admin.listUsers({ perPage: 1000 });
       if (uErr) throw new Error(uErr.message);
       const user = users.users.find((u) => (u.email ?? "").toLowerCase() === email);
-      if (!user) throw new Error("Is email ka koi account nahi mila — pehle staff member sign up kare");
+      if (!user) throw new Error("No account found for this email. The staff member must sign up first.");
       // Ek staff member sirf ek store se juda hota hai
       const del = await db.from("store_members").delete().eq("user_id", user.id);
       if (del.error) throw new Error(del.error.message);
