@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { Search, LogOut, Package } from "lucide-react";
+import { Search, LogOut, Package, Loader2 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { TileAdvisor } from "@/components/TileAdvisor";
-import { actions, useInventory, SESSION, type Product } from "@/lib/inventory";
+import { actions, useInventory, filterProducts, validateQty, SESSION, SESSION_PIN, type Product } from "@/lib/inventory";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -27,11 +27,7 @@ function Home() {
   useEffect(() => setStoreId(sessionStorage.getItem(SESSION)), []);
   const store = s.stores.find((x) => x.id === storeId);
 
-  const list = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    return s.products.filter((p) => (cat === "All" || p.category === cat) && (!t || p.name.toLowerCase().includes(t) || p.model.toLowerCase().includes(t)));
-  }, [s.products, q, cat]);
-
+  const list = useMemo(() => filterProducts(s.products, q, cat), [s.products, q, cat]);
   const total = s.products.reduce((a, p) => a + p.stock, 0);
 
   return (
@@ -54,9 +50,9 @@ function Home() {
                 <p className="text-sm text-muted-foreground">Logged in as</p>
                 <p className="font-display text-2xl">{store.name}</p>
                 <p className="mt-3 text-sm text-muted-foreground">Aapke orders: {s.orders.filter((o) => o.storeId === store.id).length}</p>
-                <button onClick={() => { sessionStorage.removeItem(SESSION); setStoreId(null); }} className="mt-5 inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm hover:bg-muted"><LogOut className="h-4 w-4" />Logout</button>
+                <button onClick={() => { sessionStorage.removeItem(SESSION); sessionStorage.removeItem(SESSION_PIN); setStoreId(null); }} className="mt-5 inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm hover:bg-muted"><LogOut className="h-4 w-4" />Logout</button>
               </div>
-            ) : <StoreLogin onLogin={(id) => { sessionStorage.setItem(SESSION, id); setStoreId(id); }} />}
+            ) : <StoreLogin onLogin={(id, pin) => { sessionStorage.setItem(SESSION, id); sessionStorage.setItem(SESSION_PIN, pin); setStoreId(id); }} />}
           </div>
         </div>
       </section>
@@ -75,6 +71,7 @@ function Home() {
           </div>
         </div>
 
+        {s.loading && <p className="mt-8 text-center text-muted-foreground">Stock load ho raha hai…</p>}
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((p) => (
             <article key={p.id} className="group overflow-hidden rounded-3xl border border-border bg-card transition hover:-translate-y-1 hover:shadow-[var(--shadow-soft)]">
@@ -93,7 +90,7 @@ function Home() {
               </div>
             </article>
           ))}
-          {list.length === 0 && <p className="col-span-full py-16 text-center text-muted-foreground">Koi tile nahi mili.</p>}
+          {list.length === 0 && !s.loading && <p className="col-span-full py-16 text-center text-muted-foreground">Koi tile nahi mili.</p>}
         </div>
       </main>
       {ordering && store && <OrderDialog p={ordering} storeId={store.id} onClose={() => setOrdering(null)} />}
@@ -105,13 +102,23 @@ function Stat({ n, l }: { n: number; l: string }) {
   return <div><p className="font-display text-3xl">{n}</p><p className="text-xs uppercase tracking-wider text-muted-foreground">{l}</p></div>;
 }
 
-function StoreLogin({ onLogin }: { onLogin: (id: string) => void }) {
+function StoreLogin({ onLogin }: { onLogin: (id: string, pin: string) => void }) {
   const s = useInventory();
   const [id, setId] = useState("");
   const [pin, setPin] = useState("");
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
   return (
-    <form onSubmit={(e) => { e.preventDefault(); const st = s.stores.find((x) => x.id === id); if (st && st.pin === pin) onLogin(id); else setErr("Galat store ya PIN"); }}>
+    <form onSubmit={async (e) => {
+      e.preventDefault();
+      if (busy) return;
+      setBusy(true); setErr("");
+      try {
+        const okId = await actions.verifyStore(id, pin);
+        if (okId) onLogin(okId, pin); else setErr("Galat store ya PIN");
+      } catch (x) { setErr((x as Error).message); }
+      finally { setBusy(false); }
+    }}>
       <p className="font-display text-2xl">Store Login</p>
       <p className="mb-4 text-sm text-muted-foreground">Apna store chunein aur PIN daalein</p>
       <select value={id} onChange={(e) => setId(e.target.value)} className="mb-3 w-full rounded-xl border border-input bg-background p-3">
@@ -120,7 +127,7 @@ function StoreLogin({ onLogin }: { onLogin: (id: string) => void }) {
       </select>
       <input value={pin} onChange={(e) => setPin(e.target.value)} type="password" inputMode="numeric" placeholder="PIN" className="mb-3 w-full rounded-xl border border-input bg-background p-3" />
       {err && <p className="mb-2 text-sm text-destructive">{err}</p>}
-      <button className="w-full rounded-xl bg-primary py-3 text-primary-foreground">Login</button>
+      <button disabled={busy} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-primary-foreground disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />}Login</button>
     </form>
   );
 }
@@ -128,7 +135,19 @@ function StoreLogin({ onLogin }: { onLogin: (id: string) => void }) {
 function OrderDialog({ p, storeId, onClose }: { p: Product; storeId: string; onClose: () => void }) {
   const [qty, setQty] = useState(1);
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  async function submit() {
+    if (busy) return;
+    const v = validateQty(qty, p.stock);
+    if (v) { setErr(v); return; }
+    setErr(""); setBusy(true);
+    try {
+      await actions.placeOrder(storeId, p.id, qty);
+      setDone(true);
+    } catch (x) { setErr((x as Error).message); }
+    finally { setBusy(false); }
+  }
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-foreground/40 p-4" onClick={onClose}>
       <div className="w-full max-w-sm rounded-3xl bg-card p-6" onClick={(e) => e.stopPropagation()}>
@@ -145,7 +164,7 @@ function OrderDialog({ p, storeId, onClose }: { p: Product; storeId: string; onC
             {err && <p className="mt-2 text-sm text-destructive">{err}</p>}
             <div className="mt-5 flex gap-2">
               <button onClick={onClose} className="flex-1 rounded-xl border border-border py-3">Cancel</button>
-              <button onClick={() => { try { actions.placeOrder(storeId, p.id, qty); setDone(true); } catch (e) { setErr((e as Error).message); } }} className="flex-1 rounded-xl bg-primary py-3 text-primary-foreground">Order Karein</button>
+              <button onClick={submit} disabled={busy} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-primary-foreground disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />}Order Karein</button>
             </div>
           </>
         )}
