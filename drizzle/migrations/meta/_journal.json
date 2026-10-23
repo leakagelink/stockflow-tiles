@@ -8,6 +8,13 @@
       "when": 1792728537239,
       "tag": "0000_godown_inventory",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792729048270,
+      "tag": "0001_store_auth_accounts",
+      "breakpoints": true
     }
   ]
 }
