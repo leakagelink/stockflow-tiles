@@ -1,17 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Search, LogOut, Package, Loader2 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { TileAdvisor } from "@/components/TileAdvisor";
-import { actions, useInventory, filterProducts, validateQty, SESSION, SESSION_PIN, type Product } from "@/lib/inventory";
+import { actions, useInventory, filterProducts, validateQty, type Product } from "@/lib/inventory";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "TileGodown — Live Tiles Stock for Every Store" },
-      { name: "description", content: "Godown ka live tiles stock har store par. Search, categories aur PIN se order." },
+      { name: "description", content: "Godown ka live tiles stock har store par. Search, categories aur account se order." },
       { property: "og:title", content: "TileGodown — Live Tiles Stock" },
-      { property: "og:description", content: "Godown ka live tiles stock har store par, PIN se order." },
+      { property: "og:description", content: "Godown ka live tiles stock har store par, account se order." },
     ],
   }),
   component: Home,
@@ -19,14 +19,11 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   const s = useInventory();
-  const [storeId, setStoreId] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("All");
   const [ordering, setOrdering] = useState<Product | null>(null);
 
-  useEffect(() => setStoreId(sessionStorage.getItem(SESSION)), []);
-  const store = s.stores.find((x) => x.id === storeId);
-
+  const store = s.store;
   const list = useMemo(() => filterProducts(s.products, q, cat), [s.products, q, cat]);
   const total = s.products.reduce((a, p) => a + p.stock, 0);
 
@@ -49,10 +46,18 @@ function Home() {
               <div>
                 <p className="text-sm text-muted-foreground">Logged in as</p>
                 <p className="font-display text-2xl">{store.name}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{s.userEmail}</p>
                 <p className="mt-3 text-sm text-muted-foreground">Aapke orders: {s.orders.filter((o) => o.storeId === store.id).length}</p>
-                <button onClick={() => { sessionStorage.removeItem(SESSION); sessionStorage.removeItem(SESSION_PIN); setStoreId(null); }} className="mt-5 inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm hover:bg-muted"><LogOut className="h-4 w-4" />Logout</button>
+                <button onClick={() => void actions.signOut()} className="mt-5 inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm hover:bg-muted"><LogOut className="h-4 w-4" />Logout</button>
               </div>
-            ) : <StoreLogin onLogin={(id, pin) => { sessionStorage.setItem(SESSION, id); sessionStorage.setItem(SESSION_PIN, pin); setStoreId(id); }} />}
+            ) : s.userEmail ? (
+              <div>
+                <p className="text-sm text-muted-foreground">Logged in as</p>
+                <p className="font-display text-2xl">{s.userEmail}</p>
+                <p className="mt-3 text-sm text-muted-foreground">Aapka account abhi kisi store se juda nahi hai. Admin se apna store assign karwayein, phir order kar payenge.</p>
+                <button onClick={() => void actions.signOut()} className="mt-5 inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm hover:bg-muted"><LogOut className="h-4 w-4" />Logout</button>
+              </div>
+            ) : <AuthForm />}
           </div>
         </div>
       </section>
@@ -93,7 +98,7 @@ function Home() {
           {list.length === 0 && !s.loading && <p className="col-span-full py-16 text-center text-muted-foreground">Koi tile nahi mili.</p>}
         </div>
       </main>
-      {ordering && store && <OrderDialog p={ordering} storeId={store.id} onClose={() => setOrdering(null)} />}
+      {ordering && store && <OrderDialog p={ordering} onClose={() => setOrdering(null)} />}
     </div>
   );
 }
@@ -102,37 +107,43 @@ function Stat({ n, l }: { n: number; l: string }) {
   return <div><p className="font-display text-3xl">{n}</p><p className="text-xs uppercase tracking-wider text-muted-foreground">{l}</p></div>;
 }
 
-function StoreLogin({ onLogin }: { onLogin: (id: string, pin: string) => void }) {
-  const s = useInventory();
-  const [id, setId] = useState("");
-  const [pin, setPin] = useState("");
+function AuthForm() {
+  const [mode, setMode] = useState<"in" | "up">("in");
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
   const [err, setErr] = useState("");
+  const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
   return (
     <form onSubmit={async (e) => {
       e.preventDefault();
       if (busy) return;
-      setBusy(true); setErr("");
+      setBusy(true); setErr(""); setInfo("");
       try {
-        const okId = await actions.verifyStore(id, pin);
-        if (okId) onLogin(okId, pin); else setErr("Galat store ya PIN");
+        if (mode === "in") {
+          await actions.signIn(email, pass);
+        } else {
+          const needsConfirm = await actions.signUp(email, pass);
+          if (needsConfirm) setInfo("Account ban gaya! Apne email par confirmation link kholein, phir sign in karein.");
+        }
       } catch (x) { setErr((x as Error).message); }
       finally { setBusy(false); }
     }}>
-      <p className="font-display text-2xl">Store Login</p>
-      <p className="mb-4 text-sm text-muted-foreground">Apna store chunein aur PIN daalein</p>
-      <select value={id} onChange={(e) => setId(e.target.value)} className="mb-3 w-full rounded-xl border border-input bg-background p-3">
-        <option value="">Store chunein</option>
-        {s.stores.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-      </select>
-      <input value={pin} onChange={(e) => setPin(e.target.value)} type="password" inputMode="numeric" placeholder="PIN" className="mb-3 w-full rounded-xl border border-input bg-background p-3" />
+      <p className="font-display text-2xl">{mode === "in" ? "Staff Sign In" : "Staff Sign Up"}</p>
+      <p className="mb-4 text-sm text-muted-foreground">Apna email aur password daalein</p>
+      <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required placeholder="Email" className="mb-3 w-full rounded-xl border border-input bg-background p-3" />
+      <input value={pass} onChange={(e) => setPass(e.target.value)} type="password" required minLength={6} placeholder="Password (kam se kam 6 akshar)" className="mb-3 w-full rounded-xl border border-input bg-background p-3" />
       {err && <p className="mb-2 text-sm text-destructive">{err}</p>}
-      <button disabled={busy} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-primary-foreground disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />}Login</button>
+      {info && <p className="mb-2 text-sm text-primary">{info}</p>}
+      <button disabled={busy} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-primary-foreground disabled:opacity-60">{busy && <Loader2 className="h-4 w-4 animate-spin" />}{mode === "in" ? "Sign In" : "Sign Up"}</button>
+      <button type="button" onClick={() => { setMode(mode === "in" ? "up" : "in"); setErr(""); setInfo(""); }} className="mt-3 w-full text-center text-sm text-muted-foreground underline">
+        {mode === "in" ? "Naya account banayein (Sign Up)" : "Pehle se account hai? Sign In"}
+      </button>
     </form>
   );
 }
 
-function OrderDialog({ p, storeId, onClose }: { p: Product; storeId: string; onClose: () => void }) {
+function OrderDialog({ p, onClose }: { p: Product; onClose: () => void }) {
   const [qty, setQty] = useState(1);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -143,7 +154,7 @@ function OrderDialog({ p, storeId, onClose }: { p: Product; storeId: string; onC
     if (v) { setErr(v); return; }
     setErr(""); setBusy(true);
     try {
-      await actions.placeOrder(storeId, p.id, qty);
+      await actions.placeOrder(p.id, qty);
       setDone(true);
     } catch (x) { setErr((x as Error).message); }
     finally { setBusy(false); }
