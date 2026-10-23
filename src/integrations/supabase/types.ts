@@ -14,13 +14,162 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_settings: {
+        Row: {
+          key: string
+          value: string
+        }
+        Insert: {
+          key: string
+          value: string
+        }
+        Update: {
+          key?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      categories: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          created_at: string
+          id: string
+          model: string
+          product_id: string
+          product_name: string
+          qty: number
+          store_id: string
+          store_name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          model?: string
+          product_id: string
+          product_name: string
+          qty: number
+          store_id: string
+          store_name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          model?: string
+          product_id?: string
+          product_name?: string
+          qty?: number
+          store_id?: string
+          store_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          category: string
+          color: string
+          created_at: string
+          id: string
+          model: string
+          name: string
+          price: number
+          size: string
+          stock: number
+        }
+        Insert: {
+          category: string
+          color?: string
+          created_at?: string
+          id?: string
+          model?: string
+          name: string
+          price?: number
+          size?: string
+          stock?: number
+        }
+        Update: {
+          category?: string
+          color?: string
+          created_at?: string
+          id?: string
+          model?: string
+          name?: string
+          price?: number
+          size?: string
+          stock?: number
+        }
+        Relationships: []
+      }
+      stores: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          pin: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          pin: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          pin?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      place_order: {
+        Args: {
+          p_pin: string
+          p_product_id: string
+          p_qty: number
+          p_store_id: string
+        }
+        Returns: number
+      }
+      store_login: {
+        Args: { p_pin: string; p_store_id: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
