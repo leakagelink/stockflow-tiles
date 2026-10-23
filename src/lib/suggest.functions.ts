@@ -30,7 +30,7 @@ export const suggestTiles = createServerFn({ method: "POST" })
         model: provider.responses("openai/gpt-6-astra"),
         maxRetries: 0,
         output: Output.object({ schema }),
-        system: "You are a tile showroom expert. Recommend up to 4 tiles ONLY from the given catalog (use exact ids). Respect the budget per peti, room suitability (e.g. anti-skid for bathrooms/outdoor). Reply in simple Hinglish.",
+        system: "You are a tile showroom expert. Recommend up to 4 tiles ONLY from the given catalog (use exact ids in the id field, but never write ids in summary or reason — use tile names). Respect the budget per peti, room suitability (e.g. anti-skid for bathrooms/outdoor). Reply in simple Hinglish.",
         prompt: `Customer preference: ${data.preference}\nRoom: ${data.room}\nBudget per peti (₹): ${data.budget || "not given"}\n\nCatalog:\n${catalog}`,
         providerOptions: { openai: { forceReasoning: true, reasoningEffort: "low", store: false, include: ["reasoning.encrypted_content"] } },
       });
