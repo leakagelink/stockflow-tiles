@@ -1,19 +1,12 @@
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { adminAction, adminVerify, getCatalog, placeOrderFn, storeLoginFn, type AdminPayload } from "./api.functions";
+import type { Order, Product, Store } from "./catalog";
 
 export type { Order, Product, Store } from "./catalog";
 export { filterProducts, validateQty } from "./catalog";
 
 type State = { loading: boolean; categories: string[]; products: Product[]; stores: Store[]; orders: Order[] };
-type ProductT = Product;
-type OrderT = Order;
-type StoreT = Store;
-
-// Re-declared locally for internal typing without value imports.
-declare type ProductI = ProductT;
-declare type OrderI = OrderT;
-declare type StoreI = StoreT;
 
 export const SESSION = "godown-store-session";
 export const SESSION_PIN = "godown-store-pin";
