@@ -185,7 +185,7 @@ function OrderDialog({ p, onClose }: { p: Product; onClose: () => void }) {
     try {
       await actions.placeOrder(p.id, qty);
       setDone(true);
-    } catch (x) { setErr((x as Error).message); }
+    } catch { setErr("Unable to place your order. Check availability and try again."); }
     finally { setBusy(false); }
   }
   return (
@@ -198,7 +198,7 @@ function OrderDialog({ p, onClose }: { p: Product; onClose: () => void }) {
             <p className="pr-12 text-xs font-mono text-muted-foreground">{p.model}</p>
             <DialogTitle className="pr-10 font-display text-2xl leading-snug">{p.name}</DialogTitle>
             <p className="mt-1 text-sm text-muted-foreground">Available: {p.stock} boxes</p>
-            <label htmlFor="order-qty" className="mt-4 block text-sm">Kitni boxes?</label>
+            <label htmlFor="order-qty" className="mt-4 block text-sm">Quantity (boxes)</label>
             <input id="order-qty" type="number" inputMode="numeric" min={1} max={p.stock} value={qty} onChange={(e) => setQty(Number(e.target.value))} className="mt-1 min-w-0 w-full rounded-lg border border-input bg-background p-3" />
             <p className="mt-2 text-sm">Total: ₹{(qty * p.price).toLocaleString("en-IN")}</p>
             {err && <p className="mt-2 text-sm text-destructive">{err}</p>}
