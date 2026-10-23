@@ -1,4 +1,4 @@
-# Professional English redesign
-- [x] Refresh store and admin presentation with concise English copy and clear actions.
-- [x] Translate advisor, validation feedback and essential interface states.
-- [x] Verify signed-in browsing, product details, order forms and all admin tabs at 320, 393, 768, 1280 and 2101px; six automated tests pass. No orders or inventory changes made during verification.
+# Email/password admin access
+- [ ] Replace admin PIN access with authenticated administrator roles and verify all admin operations server-side.
+- [ ] Create demo admin and customer/store accounts and assign their access.
+- [ ] Test administrator sign-in, customer access denial, and existing store ordering.
