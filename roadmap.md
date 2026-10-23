@@ -1,8 +1,8 @@
 # Email/password admin access
 ## Customer panel and direct-link admin
-- [ ] Remove all customer-facing admin links while preserving /admin access.
-- [ ] Add customer order history with live stock, tile details and real order statuses; keep orders private to each store.
-- [ ] Verify customer ordering/status and direct-link administrator access on phone and desktop.
+- [x] Remove all customer-facing admin links while preserving /admin access.
+- [x] Add customer order history with live stock, tile details and real order statuses; keep orders private to each store.
+- [x] Verify authenticated order placement, one-box stock deduction, administrator status update and customer read-back, reload, signed-out privacy, and 320/393/768/1280px layouts. Temporary order removed and stock restored. Ten tests pass.
 
 - [x] Replace admin PIN access with authenticated administrator roles and verify all admin operations server-side.
 - [x] Create confirmed demo admin and customer/store accounts; customer assigned to Store 1.
