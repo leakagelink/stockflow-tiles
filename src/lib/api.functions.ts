@@ -1,6 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAdminRole } from "./admin-access";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import type { Order, Product, Store } from "./catalog";
 
 export type Catalog = {
@@ -92,31 +95,30 @@ export type AdminPayload =
   | { op: "member_assign"; email: string; storeId: string }
   | { op: "member_remove"; id: string };
 
-/** Admin PIN lives in app_settings (no anon/authenticated grants) — verified server-side. */
-async function adminDb(pin: string) {
+/** Verify the caller through their own RLS-scoped role row before privileged work. */
+async function adminDb(db: SupabaseClient<Database>, userId: string) {
+  const { data, error } = await db.from("user_roles").select("role").eq("user_id", userId).eq("role", "admin").maybeSingle();
+  if (error) throw new Error("Unable to verify administrator access.");
+  requireAdminRole(data?.role);
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await supabaseAdmin.from("app_settings").select("value").eq("key", "admin_pin").single();
-  if (error) throw new Error("Administrator access is unavailable");
-  if (!data || data.value !== pin) throw new Error("Incorrect admin PIN");
   return supabaseAdmin;
 }
 
-export const adminVerify = createServerFn({ method: "POST" })
-  .validator((d: { pin: string }) => d)
-  .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: row, error } = await supabaseAdmin.from("app_settings").select("value").eq("key", "admin_pin").single();
-    if (error) throw new Error("Administrator access is unavailable");
-    return row?.value === data.pin;
+export const adminVerify = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase.from("user_roles").select("role").eq("user_id", context.userId).eq("role", "admin").maybeSingle();
+    if (error) throw new Error("Unable to verify administrator access.");
+    return data?.role === "admin";
   });
 
 export type MemberRow = { id: string; email: string; storeId: string; storeName: string };
 
 /** Stores tab: kaunsa staff account kis store se juda hai — admin-only read. */
 export const adminMembers = createServerFn({ method: "GET" })
-  .validator((d: { pin: string }) => d)
-  .handler(async ({ data }): Promise<MemberRow[]> => {
-    const db = await adminDb(data.pin);
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<MemberRow[]> => {
+    const db = await adminDb(context.supabase, context.userId);
     const { data: rows, error } = await db.from("store_members").select("id, user_id, store_id, stores(name)").order("created_at");
     if (error) throw new Error(error.message);
     const { data: users, error: uErr } = await db.auth.admin.listUsers({ perPage: 1000 });
@@ -131,9 +133,10 @@ export const adminMembers = createServerFn({ method: "GET" })
   });
 
 export const adminAction = createServerFn({ method: "POST" })
-  .validator((d: { pin: string; payload: AdminPayload }) => d)
-  .handler(async ({ data }) => {
-    const db = await adminDb(data.pin);
+  .middleware([requireSupabaseAuth])
+  .validator((d: { payload: AdminPayload }) => d)
+  .handler(async ({ data, context }) => {
+    const db = await adminDb(context.supabase, context.userId);
     const p = data.payload;
     let error: { message: string } | null = null;
     if (p.op === "product_upsert") {

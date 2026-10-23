@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Trash2, Loader2, Pencil, Boxes, ShoppingBag, Store, Tags, ShieldCheck, Plus, X } from "lucide-react";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
-import { actions, adminOps, useInventory, ADMIN_SESSION, type Product } from "@/lib/inventory";
+import { actions, adminOps, useInventory, type Product } from "@/lib/inventory";
 import type { MemberRow } from "@/lib/api.functions";
 
 export const Route = createFileRoute("/admin")({
@@ -26,8 +26,11 @@ const inp = "min-w-0 w-full min-h-11 rounded-lg border border-input bg-backgroun
 function Admin() {
   const s = useInventory();
   const [ok, setOk] = useState(false);
-  const [pin, setPin] = useState("");
-  const [pinErr, setPinErr] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [checking, setChecking] = useState(true);
+  const [signingIn, setSigningIn] = useState(false);
+  const [loginErr, setLoginErr] = useState("");
   const [tab, setTab] = useState<"stock" | "orders" | "stores" | "categories">("stock");
   const [form, setForm] = useState<Omit<Product, "id"> & { id?: string }>(blank);
   const [cat, setCat] = useState("");
@@ -36,8 +39,17 @@ function Admin() {
   const [members, setMembers] = useState<MemberRow[]>([]);
 
   useEffect(() => {
+    let active = true;
+    setOk(false);
+    if (!s.userEmail) { setChecking(false); return; }
+    setChecking(true);
+    actions.verifyAdmin().then((allowed) => { if (active) setOk(allowed); }).catch(() => { if (active) setOk(false); }).finally(() => { if (active) setChecking(false); });
+    return () => { active = false; };
+  }, [s.userEmail]);
+
+  useEffect(() => {
     if (tab !== "stores" || !ok) return;
-    actions.fetchMembers(sessionStorage.getItem(ADMIN_SESSION) ?? "")
+    actions.fetchMembers()
       .then(setMembers)
       .catch(() => {});
   }, [tab, ok, s.stores.length]);
@@ -52,22 +64,32 @@ function Admin() {
   }
 
   async function reloadMembers() {
-    const rows = await actions.fetchMembers(sessionStorage.getItem(ADMIN_SESSION) ?? "");
+    const rows = await actions.fetchMembers();
     setMembers(rows);
   }
+
+  if (checking) return <div className="min-h-screen"><Header /><div role="status" className="mx-auto flex max-w-sm items-center justify-center gap-2 py-16 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" />Checking access…</div></div>;
 
   if (!ok) return (
     <div className="min-h-screen"><Header />
       <form onSubmit={async (e) => {
         e.preventDefault();
-        setPinErr("");
-        try { if (await actions.verifyAdminPin(pin)) { sessionStorage.setItem(ADMIN_SESSION, pin); setOk(true); } else setPinErr("Incorrect admin PIN"); }
-        catch (x) { setPinErr((x as Error).message); }
+        if (signingIn) return;
+        setLoginErr(""); setSigningIn(true);
+        try {
+          await actions.signIn(email, password);
+          const allowed = await actions.verifyAdmin();
+          setOk(allowed);
+          if (!allowed) setLoginErr("This account does not have administrator access.");
+        } catch (x) { setLoginErr((x as Error).message); }
+        finally { setSigningIn(false); }
       }} className="mx-auto mt-8 w-[calc(100%-2rem)] max-w-sm rounded-lg border border-border bg-card p-5 sm:mt-24 sm:p-6">
         <ShieldCheck className="mb-4 h-8 w-8 text-primary" /><h1 className="font-display text-2xl">Administrator sign in</h1>
-        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} aria-label="Admin PIN" placeholder="Admin PIN" className={`${inp} mt-4 w-full`} />
-        {pinErr && <p className="mt-2 text-sm text-destructive">{pinErr}</p>}
-        <Button className="mt-3 h-12 w-full">Sign in</Button>
+        {s.userEmail && <p className="mt-3 text-sm text-muted-foreground">Administrator access required. Sign in with an admin account.</p>}
+        <label className="mt-5 block text-sm">Email<input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" className={`${inp} mt-1.5`} /></label>
+        <label className="mt-3 block text-sm">Password<input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className={`${inp} mt-1.5`} /></label>
+        {loginErr && <p role="alert" className="mt-3 text-sm text-destructive">{loginErr}</p>}
+        <Button disabled={signingIn} className="mt-4 h-12 w-full">{signingIn && <Loader2 className="h-4 w-4 animate-spin" />}Sign in</Button>
       </form>
     </div>
   );

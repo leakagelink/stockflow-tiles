@@ -15,6 +15,13 @@
       "when": 1792729048270,
       "tag": "0001_store_auth_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792735162428,
+      "tag": "0002_admin_email_roles",
+      "breakpoints": true
     }
   ]
 }

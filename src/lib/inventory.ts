@@ -16,7 +16,6 @@ type State = {
   store: Store | null;
 };
 
-export const ADMIN_SESSION = "godown-admin-session";
 
 let state: State = { loading: true, categories: [], products: [], stores: [], orders: [], userEmail: null, store: null };
 const listeners = new Set<() => void>();
@@ -77,7 +76,6 @@ export function useInventory(): State {
   );
 }
 
-const adminPin = () => sessionStorage.getItem(ADMIN_SESSION) ?? "";
 
 export const actions = {
   signIn: async (email: string, password: string) => {
@@ -103,13 +101,13 @@ export const actions = {
     await placeOrderFn({ data: { productId, qty } });
     await refresh();
   },
-  verifyAdminPin: (pin: string) => adminVerify({ data: { pin } }),
+  verifyAdmin: () => adminVerify(),
   /** Admin-only: staff accounts mapped to stores. */
-  fetchMembers: (pin: string) => adminMembers({ data: { pin } }),
+  fetchMembers: () => adminMembers(),
 };
 
 async function adminRun(payload: AdminPayload) {
-  await adminAction({ data: { pin: adminPin(), payload } });
+  await adminAction({ data: { payload } });
   await refresh();
 }
 
