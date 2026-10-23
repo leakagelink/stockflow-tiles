@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Trash2, Loader2 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { actions, adminOps, useInventory, ADMIN_SESSION, type Product } from "@/lib/inventory";
+import type { MemberRow } from "@/lib/api.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -27,13 +28,14 @@ function Admin() {
   const [tab, setTab] = useState<"stock" | "orders" | "stores" | "categories">("stock");
   const [form, setForm] = useState<Omit<Product, "id"> & { id?: string }>(blank);
   const [cat, setCat] = useState("");
-  const [st, setSt] = useState({ name: "", pin: "" });
-  const [pins, setPins] = useState<Record<string, string>>({});
+  const [st, setSt] = useState({ name: "" });
+  const [assign, setAssign] = useState({ email: "", storeId: "" });
+  const [members, setMembers] = useState<MemberRow[]>([]);
 
   useEffect(() => {
     if (tab !== "stores" || !ok) return;
-    actions.fetchStoresWithPins(sessionStorage.getItem(ADMIN_SESSION) ?? "")
-      .then((rows) => setPins(Object.fromEntries(rows.map((r) => [r.id, r.pin]))))
+    actions.fetchMembers(sessionStorage.getItem(ADMIN_SESSION) ?? "")
+      .then(setMembers)
       .catch(() => {});
   }, [tab, ok, s.stores.length]);
   const [msg, setMsg] = useState("");
@@ -44,6 +46,11 @@ function Admin() {
     setMsg(""); setBusy(true);
     try { await fn(); } catch (e) { setMsg((e as Error).message); }
     finally { setBusy(false); }
+  }
+
+  async function reloadMembers() {
+    const rows = await actions.fetchMembers(sessionStorage.getItem(ADMIN_SESSION) ?? "");
+    setMembers(rows);
   }
 
   if (!ok) return (
@@ -112,18 +119,39 @@ function Admin() {
         )}
 
         {tab === "stores" && (
-          <div className="mt-6 space-y-4">
-            <form onSubmit={(e) => { e.preventDefault(); if (st.name && st.pin) run(async () => { await adminOps.addStore(st.name, st.pin); setSt({ name: "", pin: "" }); }); }} className="flex flex-wrap gap-2">
-              <input className={inp} placeholder="Store name" value={st.name} onChange={(e) => setSt({ ...st, name: e.target.value })} />
-              <input className={inp} placeholder="PIN" value={st.pin} onChange={(e) => setSt({ ...st, pin: e.target.value })} />
+          <div className="mt-6 space-y-6">
+            <form onSubmit={(e) => { e.preventDefault(); if (st.name) run(async () => { await adminOps.addStore(st.name); setSt({ name: "" }); }); }} className="flex flex-wrap gap-2">
+              <input className={inp} placeholder="Store name" value={st.name} onChange={(e) => setSt({ name: e.target.value })} />
               <button className="rounded-xl bg-primary px-4 text-sm text-primary-foreground">Add store</button>
             </form>
             {s.stores.map((x) => (
               <div key={x.id} className="flex items-center justify-between rounded-2xl border border-border bg-card p-4">
-                <span>{x.name} <span className="ml-2 font-mono text-muted-foreground">PIN {pins[x.id] ?? "…"}</span><span className="ml-2 font-mono text-muted-foreground">{s.orders.filter((o) => o.storeId === x.id).length} orders</span></span>
+                <span>{x.name} <span className="ml-2 font-mono text-muted-foreground">{s.orders.filter((o) => o.storeId === x.id).length} orders</span></span>
                 <button onClick={() => run(() => adminOps.deleteStore(x.id))}><Trash2 className="h-4 w-4 text-destructive" /></button>
               </div>
             ))}
+
+            <div className="rounded-3xl border border-border bg-card p-5">
+              <p className="font-display text-xl">Staff Accounts</p>
+              <p className="mt-1 text-sm text-muted-foreground">Staff member pehle Store Panel par sign up kare, phir yahan uska email store se jodein.</p>
+              <form onSubmit={(e) => { e.preventDefault(); if (assign.email && assign.storeId) run(async () => { await adminOps.assignMember(assign.email, assign.storeId); setAssign({ email: "", storeId: "" }); await reloadMembers(); }); }} className="mt-4 flex flex-wrap gap-2">
+                <input className={inp} type="email" placeholder="Staff email" value={assign.email} onChange={(e) => setAssign({ ...assign, email: e.target.value })} />
+                <select className={inp} value={assign.storeId} onChange={(e) => setAssign({ ...assign, storeId: e.target.value })}>
+                  <option value="">Store chunein</option>
+                  {s.stores.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+                </select>
+                <button className="rounded-xl bg-primary px-4 text-sm text-primary-foreground">Assign</button>
+              </form>
+              <div className="mt-4 space-y-2">
+                {members.map((m) => (
+                  <div key={m.id} className="flex items-center justify-between rounded-2xl border border-border bg-background p-3 text-sm">
+                    <span>{m.email} <span className="ml-2 text-muted-foreground">→ {m.storeName}</span></span>
+                    <button onClick={() => run(async () => { await adminOps.removeMember(m.id); await reloadMembers(); })}><Trash2 className="h-4 w-4 text-destructive" /></button>
+                  </div>
+                ))}
+                {members.length === 0 && <p className="text-sm text-muted-foreground">Abhi koi staff account assign nahi hai.</p>}
+              </div>
+            </div>
           </div>
         )}
 
