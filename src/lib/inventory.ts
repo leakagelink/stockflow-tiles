@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { adminAction, adminMembers, adminVerify, getCatalog, myStoreFn, placeOrderFn, type AdminPayload } from "./api.functions";
-import type { Order, Product, Store } from "./catalog";
+import { adminAction, adminMembers, adminVerify, getCatalog, myStoreFn, myOrdersFn, placeOrderFn, type AdminPayload } from "./api.functions";
+import type { Order, OrderStatus, Product, Store } from "./catalog";
 
 export type { Order, Product, Store } from "./catalog";
 export { filterProducts, validateQty } from "./catalog";
@@ -12,12 +12,14 @@ type State = {
   products: Product[];
   stores: Store[];
   orders: Order[];
+  ordersError: string;
   userEmail: string | null;
   store: Store | null;
 };
 
 
-let state: State = { loading: true, categories: [], products: [], stores: [], orders: [], userEmail: null, store: null };
+let state: State = { loading: true, categories: [], products: [], stores: [], orders: [], ordersError: "", userEmail: null, store: null };
+let refreshVersion = 0;
 const listeners = new Set<() => void>();
 let started = false;
 
@@ -28,9 +30,12 @@ function set(patch: Partial<State>) {
 
 /** Pull the latest shared godown state from the cloud database. */
 export async function refresh() {
+  const version = ++refreshVersion;
   try {
     const c = await getCatalog();
     let store: Store | null = null;
+    let orders: Order[] = [];
+    let ordersError = "";
     const { data: sessionData } = await supabase.auth.getSession();
     if (sessionData.session) {
       try {
@@ -38,8 +43,11 @@ export async function refresh() {
       } catch {
         store = null;
       }
+      try { orders = await myOrdersFn(); }
+      catch { ordersError = "Unable to load your orders. Please try again."; }
     }
-    set({ loading: false, categories: c.categories, products: c.products, stores: c.stores, orders: c.orders, store });
+    if (version !== refreshVersion) return;
+    set({ loading: false, categories: c.categories, products: c.products, stores: c.stores, orders, ordersError, store });
   } catch (e) {
     set({ loading: false });
     console.error("catalog load failed", e);
@@ -53,7 +61,8 @@ function start() {
   supabase.auth.getSession().then(({ data }) => set({ userEmail: data.session?.user.email ?? null }));
   supabase.auth.onAuthStateChange((event, session) => {
     if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-    set({ userEmail: session?.user.email ?? null });
+    ++refreshVersion;
+    set({ userEmail: session?.user.email ?? null, store: null, orders: [], ordersError: "" });
     void refresh();
   });
   // Live updates: when any store orders, every device refreshes automatically.
@@ -94,7 +103,8 @@ export const actions = {
   },
   signOut: async () => {
     await supabase.auth.signOut();
-    set({ userEmail: null, store: null });
+    ++refreshVersion;
+    set({ userEmail: null, store: null, orders: [], ordersError: "" });
   },
   /** Deducts stock in the cloud database; every store sees the new stock immediately. */
   placeOrder: async (productId: string, qty: number) => {
@@ -112,6 +122,7 @@ async function adminRun(payload: AdminPayload) {
 }
 
 export const adminOps = {
+  updateOrderStatus: (id: string, status: OrderStatus) => adminRun({ op: "order_status", id, status }),
   upsertProduct: (p: Omit<Product, "id"> & { id?: string }) => adminRun({ op: "product_upsert", product: p }),
   deleteProduct: (id: string) => adminRun({ op: "product_delete", id }),
   addCategory: async (c: string) => {
