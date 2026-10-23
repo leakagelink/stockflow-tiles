@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { adminAction, adminVerify, getCatalog, placeOrderFn, storeLoginFn, type AdminPayload } from "./api.functions";
+import { adminAction, adminStores, adminVerify, getCatalog, placeOrderFn, storeLoginFn, type AdminPayload } from "./api.functions";
 import type { Order, Product, Store } from "./catalog";
 
 export type { Order, Product, Store } from "./catalog";
@@ -70,6 +70,8 @@ export const actions = {
     await refresh();
   },
   verifyAdminPin: (pin: string) => adminVerify({ data: { pin } }),
+  /** Admin-only: store names with PINs for the stores tab. */
+  fetchStoresWithPins: (pin: string) => adminStores({ data: { pin } }),
 };
 
 async function adminRun(payload: AdminPayload) {

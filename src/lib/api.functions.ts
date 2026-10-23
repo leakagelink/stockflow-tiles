@@ -103,6 +103,16 @@ export const adminVerify = createServerFn({ method: "POST" })
     return row?.value === data.pin;
   });
 
+/** Stores tab needs PINs, which the public API never exposes — admin-only read. */
+export const adminStores = createServerFn({ method: "GET" })
+  .validator((d: { pin: string }) => d)
+  .handler(async ({ data }) => {
+    const db = await adminDb(data.pin);
+    const { data: rows, error } = await db.from("stores").select("id,name,pin").order("created_at");
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
 export const adminAction = createServerFn({ method: "POST" })
   .validator((d: { pin: string; payload: AdminPayload }) => d)
   .handler(async ({ data }) => {
