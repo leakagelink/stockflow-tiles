@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Trash2, Loader2 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { actions, adminOps, useInventory, ADMIN_SESSION, type Product } from "@/lib/inventory";
@@ -28,6 +28,14 @@ function Admin() {
   const [form, setForm] = useState<Omit<Product, "id"> & { id?: string }>(blank);
   const [cat, setCat] = useState("");
   const [st, setSt] = useState({ name: "", pin: "" });
+  const [pins, setPins] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (tab !== "stores" || !ok) return;
+    actions.fetchStoresWithPins(sessionStorage.getItem(ADMIN_SESSION) ?? "")
+      .then((rows) => setPins(Object.fromEntries(rows.map((r) => [r.id, r.pin]))))
+      .catch(() => {});
+  }, [tab, ok, s.stores.length]);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -112,7 +120,7 @@ function Admin() {
             </form>
             {s.stores.map((x) => (
               <div key={x.id} className="flex items-center justify-between rounded-2xl border border-border bg-card p-4">
-                <span>{x.name} <span className="ml-2 font-mono text-muted-foreground">{s.orders.filter((o) => o.storeId === x.id).length} orders</span></span>
+                <span>{x.name} <span className="ml-2 font-mono text-muted-foreground">PIN {pins[x.id] ?? "…"}</span><span className="ml-2 font-mono text-muted-foreground">{s.orders.filter((o) => o.storeId === x.id).length} orders</span></span>
                 <button onClick={() => run(() => adminOps.deleteStore(x.id))}><Trash2 className="h-4 w-4 text-destructive" /></button>
               </div>
             ))}
