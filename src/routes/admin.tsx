@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { actions, adminOps, useInventory, type Product } from "@/lib/inventory";
 import type { MemberRow } from "@/lib/api.functions";
+import { orderStatuses, validateOrderStatus } from "@/lib/catalog";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -15,6 +16,7 @@ export const Route = createFileRoute("/admin")({
       { property: "og:description", content: "Manage tile inventory, store orders, staff access, and categories." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "robots", content: "noindex, nofollow" },
     ],
   }),
   component: Admin,
@@ -150,12 +152,13 @@ function Admin() {
               <article key={o.id} className="min-w-0 rounded-lg border border-border bg-card p-4">
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3"><h2 className="min-w-0 font-semibold">{o.productName}</h2><span className="shrink-0 text-sm font-semibold text-primary">{o.qty} boxes</span></div>
                 <p className="mt-1 font-mono text-xs text-muted-foreground">{o.model}</p><p className="mt-3 text-sm">{o.storeName}</p><p className="mt-1 text-xs text-muted-foreground">{new Date(o.date).toLocaleString("en-IN")}</p>
+                <label className="mt-3 block text-xs text-muted-foreground">Order status<select aria-label={`Status for order ${o.id}`} disabled={busy} className={`${inp} mt-1 capitalize text-foreground`} value={o.status} onChange={(e) => void run(() => adminOps.updateOrderStatus(o.id, validateOrderStatus(e.target.value)))}>{orderStatuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></label>
               </article>
             ))}</div>
             <div className="hidden overflow-x-auto rounded-lg border border-border bg-card sm:block"><table className="w-full text-sm">
-              <thead className="text-left text-muted-foreground"><tr>{["Date", "Store", "Tile", "Model", "Boxes"].map((h) => <th key={h} className="p-4">{h}</th>)}</tr></thead>
+              <thead className="text-left text-muted-foreground"><tr>{["Date", "Store", "Tile", "Model", "Boxes", "Status"].map((h) => <th key={h} className="p-4">{h}</th>)}</tr></thead>
               <tbody>{s.orders.map((o) => (
-                <tr key={o.id} className="border-t border-border"><td className="p-4">{new Date(o.date).toLocaleString("en-IN")}</td><td className="p-4">{o.storeName}</td><td className="p-4">{o.productName}</td><td className="p-4 font-mono">{o.model}</td><td className="p-4 font-semibold">{o.qty}</td></tr>
+                <tr key={o.id} className="border-t border-border"><td className="p-4">{new Date(o.date).toLocaleString("en-IN")}</td><td className="p-4">{o.storeName}</td><td className="p-4">{o.productName}</td><td className="p-4 font-mono">{o.model}</td><td className="p-4 font-semibold">{o.qty}</td><td className="p-4"><select aria-label={`Status for order ${o.id}`} disabled={busy} className={`${inp} capitalize`} value={o.status} onChange={(e) => void run(() => adminOps.updateOrderStatus(o.id, validateOrderStatus(e.target.value)))}>{orderStatuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></td></tr>
               ))}</tbody>
             </table></div>
             {s.orders.length === 0 && <p className="p-8 text-center text-muted-foreground">No orders yet.</p>}

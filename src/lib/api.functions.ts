@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireAdminRole } from "./admin-access";
+import { validateOrderStatus, type OrderStatus } from "./catalog";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type { Order, Product, Store } from "./catalog";
@@ -32,19 +33,30 @@ function publicClient() {
 
 export const getCatalog = createServerFn({ method: "GET" }).handler(async (): Promise<Catalog> => {
   const db = publicClient();
-  const [products, cats, stores, orders] = await Promise.all([
+  const [products, cats, stores] = await Promise.all([
     db.from("products").select("id,name,model,category,size,price,stock,color").order("created_at"),
     db.from("categories").select("name").order("name"),
     db.from("stores").select("id,name").order("created_at"),
-    db.from("orders").select("id,store_id,store_name,product_id,product_name,model,qty,created_at").order("created_at", { ascending: false }),
   ]);
-  const err = products.error || cats.error || stores.error || orders.error;
+  const err = products.error || cats.error || stores.error;
   if (err) throw new Error("Unable to load data: " + err.message);
   return {
     products: (products.data ?? []).map((p) => ({ ...p, price: Number(p.price) })),
     categories: (cats.data ?? []).map((c) => c.name),
     stores: stores.data ?? [],
-    orders: (orders.data ?? []).map((o) => ({
+    orders: [],
+  };
+});
+
+/** RLS exposes only the caller's store orders, or all orders to verified admins. */
+export const myOrdersFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<Order[]> => {
+    const { data, error } = await context.supabase.from("orders")
+      .select("id,store_id,store_name,product_id,product_name,model,qty,created_at,status")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error("Unable to load orders.");
+    return (data ?? []).map((o) => ({
       id: o.id,
       storeId: o.store_id,
       storeName: o.store_name,
@@ -53,9 +65,9 @@ export const getCatalog = createServerFn({ method: "GET" }).handler(async (): Pr
       model: o.model,
       qty: o.qty,
       date: o.created_at,
-    })),
-  };
-});
+      status: validateOrderStatus(o.status),
+    }));
+  });
 
 /** Logged-in staff member ka store (store_members se). */
 export const myStoreFn = createServerFn({ method: "GET" })
@@ -86,6 +98,7 @@ export const placeOrderFn = createServerFn({ method: "POST" })
   });
 
 export type AdminPayload =
+  | { op: "order_status"; id: string; status: OrderStatus }
   | { op: "product_upsert"; product: Omit<Product, "id"> & { id?: string } }
   | { op: "product_delete"; id: string }
   | { op: "category_add"; name: string }
@@ -139,7 +152,9 @@ export const adminAction = createServerFn({ method: "POST" })
     const db = await adminDb(context.supabase, context.userId);
     const p = data.payload;
     let error: { message: string } | null = null;
-    if (p.op === "product_upsert") {
+    if (p.op === "order_status") {
+      error = (await db.from("orders").update({ status: validateOrderStatus(p.status) }).eq("id", p.id)).error;
+    } else if (p.op === "product_upsert") {
       const row = {
         name: p.product.name,
         model: p.product.model,
