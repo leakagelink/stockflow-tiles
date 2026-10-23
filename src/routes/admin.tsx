@@ -79,7 +79,7 @@ function Admin() {
         <div className="mt-6 grid grid-cols-3 divide-x divide-border border-y border-border py-5">{[{ label: "Boxes in stock", value: s.products.reduce((n, p) => n + p.stock, 0) }, { label: "Orders", value: s.orders.length }, { label: "Stores", value: s.stores.length }].map((metric) => <div key={metric.label} className="min-w-0 px-3 first:pl-0 sm:px-6"><p className="font-display text-2xl">{metric.value.toLocaleString("en-IN")}</p><p className="mt-1 text-xs text-muted-foreground">{metric.label}</p></div>)}</div>
         <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           {(["stock", "orders", "stores", "categories"] as const).map((t) => (
-            <Button variant={tab === t ? "default" : "outline"} key={t} aria-pressed={tab === t} onClick={() => setTab(t)} className={`h-11 px-4 capitalize ${tab === t ? "bg-foreground text-background hover:bg-foreground hover:text-background" : ""}`>{t === "stock" ? <Boxes /> : t === "orders" ? <ShoppingBag /> : t === "stores" ? <Store /> : <Tags />}{t}</Button>
+            <Button variant={tab === t ? "default" : "outline"} key={t} aria-pressed={tab === t} onClick={() => setTab(t)} className={`h-11 px-4 capitalize ${tab === t ? "bg-foreground text-background hover:bg-foreground hover:text-background" : ""}`}>{t === "stock" ? <Boxes /> : t === "orders" ? <ShoppingBag /> : t === "stores" ? <Store /> : <Tags />}{t}</Button>
           ))}
           {busy && <Loader2 className="h-5 w-5 animate-spin self-center text-muted-foreground" />}
         </div>
