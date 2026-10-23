@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Search, LogOut, Package, Loader2 } from "lucide-react";
+import { Search, LogOut, Package, Loader2, X } from "lucide-react";
 import { Header } from "@/components/Header";
 import { TileAdvisor } from "@/components/TileAdvisor";
 import { actions, useInventory, filterProducts, validateQty, type Product } from "@/lib/inventory";
@@ -22,6 +22,7 @@ function Home() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("All");
   const [ordering, setOrdering] = useState<Product | null>(null);
+  const [detail, setDetail] = useState<Product | null>(null);
 
   const store = s.store;
   const list = useMemo(() => filterProducts(s.products, q, cat), [s.products, q, cat]);
@@ -79,7 +80,7 @@ function Home() {
         {s.loading && <p className="mt-8 text-center text-muted-foreground">Stock load ho raha hai…</p>}
         <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((p) => (
-            <article key={p.id} className="group overflow-hidden rounded-3xl border border-border bg-card transition hover:-translate-y-1 hover:shadow-[var(--shadow-soft)]">
+            <article key={p.id} onClick={() => setDetail(p)} className="group cursor-pointer overflow-hidden rounded-3xl border border-border bg-card transition hover:-translate-y-1 hover:shadow-[var(--shadow-soft)]">
               <div className="relative h-44" style={{ background: p.color }}>
                 <div className="tile-grid absolute inset-0 opacity-40" />
                 <span className="absolute left-4 top-4 rounded-full bg-background/90 px-3 py-1 text-xs">{p.category}</span>
@@ -90,7 +91,7 @@ function Home() {
                 <h3 className="mt-1 font-display text-xl">{p.name}</h3>
                 <div className="mt-4 flex items-center justify-between">
                   <span className="font-semibold">₹{p.price}<span className="text-xs font-normal text-muted-foreground"> /peti</span></span>
-                  <button disabled={!store || p.stock === 0} onClick={() => setOrdering(p)} className="rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-40">{store ? "Order" : "Login to order"}</button>
+                  <span className="text-sm text-primary underline underline-offset-4">Detail dekhein</span>
                 </div>
               </div>
             </article>
@@ -98,7 +99,8 @@ function Home() {
           {list.length === 0 && !s.loading && <p className="col-span-full py-16 text-center text-muted-foreground">Koi tile nahi mili.</p>}
         </div>
       </main>
-      {ordering && store && <OrderDialog p={ordering} onClose={() => setOrdering(null)} />}
+      {detail && !ordering && <ProductDetail p={detail} canOrder={!!store} onOrder={() => setOrdering(detail)} onClose={() => setDetail(null)} />}
+      {ordering && store && <OrderDialog p={ordering} onClose={() => { setOrdering(null); setDetail(null); }} />}
     </div>
   );
 }
@@ -140,6 +142,45 @@ function AuthForm() {
         {mode === "in" ? "Naya account banayein (Sign Up)" : "Pehle se account hai? Sign In"}
       </button>
     </form>
+  );
+}
+
+function ProductDetail({ p, canOrder, onOrder, onClose }: { p: Product; canOrder: boolean; onOrder: () => void; onClose: () => void }) {
+  const rows: [string, string][] = [
+    ["Model No.", p.model || "—"],
+    ["Category", p.category],
+    ["Size", p.size || "—"],
+    ["Price", `₹${p.price.toLocaleString("en-IN")} /peti`],
+    ["Godown Stock", p.stock === 0 ? "Out of stock" : `${p.stock} peti`],
+  ];
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-foreground/40 p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-card" onClick={(e) => e.stopPropagation()}>
+        <div className="relative h-56" style={{ background: p.color }}>
+          <div className="tile-grid absolute inset-0 opacity-40" />
+          <span className="absolute left-4 top-4 rounded-full bg-background/90 px-3 py-1 text-xs">{p.category}</span>
+          <button onClick={onClose} aria-label="Band karein" className="absolute right-4 top-4 rounded-full bg-background/90 p-2"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="p-6">
+          <h3 className="font-display text-3xl">{p.name}</h3>
+          <div className="mt-4 divide-y divide-border rounded-2xl border border-border">
+            {rows.map(([k, v]) => (
+              <div key={k} className="flex items-center justify-between px-4 py-3 text-sm">
+                <span className="text-muted-foreground">{k}</span>
+                <span className="font-medium">{v}</span>
+              </div>
+            ))}
+          </div>
+          <button
+            disabled={!canOrder || p.stock === 0}
+            onClick={onOrder}
+            className="mt-5 w-full rounded-xl bg-primary py-3 text-primary-foreground disabled:opacity-40"
+          >
+            {canOrder ? (p.stock === 0 ? "Stock khatam" : "Order Karein") : "Order ke liye login karein"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
