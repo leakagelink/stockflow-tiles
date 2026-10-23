@@ -78,7 +78,7 @@ function Admin() {
         <h1 className="font-display text-3xl sm:text-4xl">Admin Panel</h1>
         <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           {(["stock", "orders", "stores", "categories"] as const).map((t) => (
-            <Button variant="outline" key={t} aria-pressed={tab === t} onClick={() => setTab(t)} className={`h-11 px-4 capitalize ${tab === t ? "bg-foreground text-background" : ""}`}>{t}</Button>
+            <Button variant={tab === t ? "default" : "outline"} key={t} aria-pressed={tab === t} onClick={() => setTab(t)} className={`h-11 px-4 capitalize ${tab === t ? "bg-foreground text-background hover:bg-foreground hover:text-background" : ""}`}>{t}</Button>
           ))}
           {busy && <Loader2 className="h-5 w-5 animate-spin self-center text-muted-foreground" />}
         </div>
