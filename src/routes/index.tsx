@@ -1,20 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Search, Package, Loader2, ArrowUpRight, Store, Boxes, Sparkles } from "lucide-react";
+import { Search, Package, Loader2, ArrowUpRight, Store, Boxes, Sparkles, Grid2X2, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import warehouse from "@/assets/warehouse.jpg";
 import { Header } from "@/components/Header";
 import { TileAdvisor } from "@/components/TileAdvisor";
+import { CustomerOrders } from "@/components/CustomerOrders";
 import { actions, useInventory, filterProducts, validateQty, type Product } from "@/lib/inventory";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "TileGodown — Live Tiles Stock for Every Store" },
-      { name: "description", content: "Browse tile designs, view live warehouse availability, and place store orders." },
-      { property: "og:title", content: "TileGodown — Live Tiles Stock" },
-      { property: "og:description", content: "Live warehouse inventory and tile ordering for every store." },
+      { title: "Customer Panel — TileGodown" },
+      { name: "description", content: "Browse tile details, check live stock, place orders and track your store's order status." },
+      { property: "og:title", content: "Customer Panel — TileGodown" },
+      { property: "og:description", content: "Tile details, live warehouse stock and order tracking for your store." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -28,6 +29,9 @@ function Home() {
   const [cat, setCat] = useState("All");
   const [ordering, setOrdering] = useState<Product | null>(null);
   const [detail, setDetail] = useState<Product | null>(null);
+  const [view, setView] = useState<"catalog" | "orders">("catalog");
+  const liveDetail = detail ? s.products.find((p) => p.id === detail.id) ?? detail : null;
+  const liveOrdering = ordering ? s.products.find((p) => p.id === ordering.id) ?? { ...ordering, stock: 0 } : null;
 
   const store = s.store;
   const list = useMemo(() => filterProducts(s.products, q, cat), [s.products, q, cat]);
@@ -51,7 +55,9 @@ function Home() {
           <Stat n={s.products.length} l="Tile designs" /><Stat n={total} l="Boxes available" /><Stat n={s.stores.length} l="Stores" />
         </div>
         {!s.userEmail && <section className="mb-8 border-b border-border pb-6"><AuthForm /></section>}
-        {s.userEmail && !store && <p className="mb-6 rounded-lg border border-warning bg-warning/15 p-4 text-sm">Store assignment pending. Contact your administrator to start ordering.</p>}
+        {s.userEmail && !store && <p className="mb-6 rounded-lg border border-warning bg-warning/15 p-4 text-sm">Store assignment pending. Contact your store manager to start ordering.</p>}
+        {store && <div className="mb-6 grid grid-cols-2 gap-2 border-b border-border pb-5 sm:flex"><Button variant={view === "catalog" ? "default" : "outline"} aria-pressed={view === "catalog"} className="h-12" onClick={() => setView("catalog")}><Grid2X2 className="h-4 w-4" />Tile catalog</Button><Button variant={view === "orders" ? "default" : "outline"} aria-pressed={view === "orders"} className="h-12" onClick={() => setView("orders")}><ShoppingBag className="h-4 w-4" />My orders<span className="text-xs">({s.orders.filter((o) => o.storeId === store.id).length})</span></Button></div>}
+        {view === "orders" && store ? <CustomerOrders onDetail={setDetail} /> : <>
         <div className="mb-5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3"><div className="min-w-0"><h2 className="font-display text-2xl">Explore tiles</h2><p className="mt-1 text-sm text-muted-foreground">{list.length} designs{cat !== "All" ? ` · ${cat}` : ""}</p></div>{store && <span className="flex items-center gap-2 text-xs text-primary"><Store className="h-4 w-4" /><span className="hidden sm:inline">Ready to order</span></span>}</div>
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="relative w-full md:max-w-md">
@@ -89,9 +95,10 @@ function Home() {
           {list.length === 0 && !s.loading && <p className="col-span-full py-16 text-center text-muted-foreground">No tiles found. Try a different search or category.</p>}
         </div>
         {store && <details className="mt-8 border-t border-border pt-5"><summary className="flex cursor-pointer list-none items-center gap-2 py-2 text-sm font-semibold text-primary"><Sparkles className="h-4 w-4" />Tile advisor</summary><TileAdvisor onOrder={(p) => setDetail(p)} /></details>}
+        </>}
       </main>
-      {detail && !ordering && <ProductDetail p={detail} canOrder={!!store} onOrder={() => setOrdering(detail)} onClose={() => setDetail(null)} />}
-      {ordering && store && <OrderDialog p={ordering} onClose={() => { setOrdering(null); setDetail(null); }} />}
+      {liveDetail && !ordering && <ProductDetail p={liveDetail} canOrder={!!store} onOrder={() => setOrdering(liveDetail)} onClose={() => setDetail(null)} />}
+      {liveOrdering && store && <OrderDialog p={liveOrdering} onTrack={() => { setOrdering(null); setDetail(null); setView("orders"); }} onClose={() => { setOrdering(null); setDetail(null); }} />}
     </div>
   );
 }
@@ -122,7 +129,7 @@ function AuthForm() {
       } catch (x) { setErr((x as Error).message); }
       finally { setBusy(false); }
     }}>
-      <div className="mb-4 flex items-center justify-between gap-3"><h2 className="font-display text-xl">{mode === "in" ? "Staff sign in" : "Create staff account"}</h2><Button variant="link" type="button" onClick={() => { setMode(mode === "in" ? "up" : "in"); setErr(""); setInfo(""); }} className="h-11 shrink-0 px-0">{mode === "in" ? "Create account" : "Sign in instead"}</Button></div>
+      <div className="mb-4 flex items-center justify-between gap-3"><h2 className="font-display text-xl">{mode === "in" ? "Customer sign in" : "Create customer account"}</h2><Button variant="link" type="button" onClick={() => { setMode(mode === "in" ? "up" : "in"); setErr(""); setInfo(""); }} className="h-11 shrink-0 px-0">{mode === "in" ? "Create account" : "Sign in instead"}</Button></div>
       <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
         <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" aria-label="Email" required placeholder="Email address" className="min-w-0 w-full rounded-lg border border-input bg-card p-3" />
         <input value={pass} onChange={(e) => setPass(e.target.value)} type="password" autoComplete={mode === "in" ? "current-password" : "new-password"} aria-label="Password" required minLength={6} placeholder="Password" className="min-w-0 w-full rounded-lg border border-input bg-card p-3" />
@@ -172,7 +179,7 @@ function ProductDetail({ p, canOrder, onOrder, onClose }: { p: Product; canOrder
   );
 }
 
-function OrderDialog({ p, onClose }: { p: Product; onClose: () => void }) {
+function OrderDialog({ p, onClose, onTrack }: { p: Product; onClose: () => void; onTrack: () => void }) {
   const [qty, setQty] = useState(1);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -192,7 +199,7 @@ function OrderDialog({ p, onClose }: { p: Product; onClose: () => void }) {
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent aria-describedby={undefined} className="block max-w-sm bg-card p-4 sm:p-6">
         {done ? (
-          <div className="text-center"><Package className="mx-auto h-10 w-10 text-primary" /><DialogTitle className="mt-3 font-display text-2xl">Order confirmed</DialogTitle><p className="text-sm text-muted-foreground">Your order is placed and inventory is updated.</p><Button onClick={onClose} className="mt-5 h-11 px-6">OK</Button></div>
+          <div className="text-center"><Package className="mx-auto h-10 w-10 text-primary" /><DialogTitle className="mt-3 font-display text-2xl">Order confirmed</DialogTitle><p className="mt-2 text-sm text-muted-foreground">{qty} boxes reserved. Stock updated.</p><Button onClick={onTrack} className="mt-5 h-12 w-full"><ShoppingBag className="h-4 w-4" />Track order</Button></div>
         ) : (
           <>
             <p className="pr-12 text-xs font-mono text-muted-foreground">{p.model}</p>
