@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { Search, LogOut, Package } from "lucide-react";
 import { Header } from "@/components/Header";
+import { TileAdvisor } from "@/components/TileAdvisor";
 import { actions, useInventory, SESSION, type Product } from "@/lib/inventory";
 
 export const Route = createFileRoute("/")({
@@ -61,6 +62,7 @@ function Home() {
       </section>
 
       <main className="mx-auto max-w-7xl px-6 py-12">
+        {store && <div className="mb-10"><TileAdvisor onOrder={setOrdering} /></div>}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="relative w-full md:max-w-md">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
