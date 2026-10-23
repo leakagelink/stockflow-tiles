@@ -55,6 +55,7 @@ export type Database = {
           product_id: string
           product_name: string
           qty: number
+          status: string
           store_id: string
           store_name: string
         }
@@ -65,6 +66,7 @@ export type Database = {
           product_id: string
           product_name: string
           qty: number
+          status?: string
           store_id: string
           store_name: string
         }
@@ -75,6 +77,7 @@ export type Database = {
           product_id?: string
           product_name?: string
           qty?: number
+          status?: string
           store_id?: string
           store_name?: string
         }
