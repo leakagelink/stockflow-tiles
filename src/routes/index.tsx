@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import warehouse from "@/assets/warehouse.jpg";
 import { Header } from "@/components/Header";
+import { BottomBar } from "@/components/BottomBar";
 import { TileAdvisor } from "@/components/TileAdvisor";
 import { CustomerOrders } from "@/components/CustomerOrders";
 import { actions, useInventory, filterProducts, validateQty, type Product } from "@/lib/inventory";
@@ -38,7 +39,7 @@ function Home() {
   const total = s.products.reduce((a, p) => a + p.stock, 0);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-[4.25rem] sm:pb-0">
       <Header />
       <section className="relative overflow-hidden border-b border-border">
         <img src={warehouse} alt="Tile warehouse" width={1536} height={512} className="absolute inset-0 h-full w-full object-cover" />
@@ -54,9 +55,9 @@ function Home() {
         <div className="mb-7 grid grid-cols-3 divide-x divide-border border-b border-border pb-6">
           <Stat n={s.products.length} l="Tile designs" /><Stat n={total} l="Boxes available" /><Stat n={s.stores.length} l="Stores" />
         </div>
-        {!s.userEmail && <section className="mb-8 border-b border-border pb-6"><AuthForm /></section>}
+        {!s.userEmail && <section id="auth" className="mb-8 scroll-mt-20 border-b border-border pb-6"><AuthForm /></section>}
         {s.userEmail && !store && <p className="mb-6 rounded-lg border border-warning bg-warning/15 p-4 text-sm">Store assignment pending. Contact your store manager to start ordering.</p>}
-        {store && <div className="mb-6 grid grid-cols-2 gap-2 border-b border-border pb-5 sm:flex"><Button variant={view === "catalog" ? "default" : "outline"} aria-pressed={view === "catalog"} className="h-12" onClick={() => setView("catalog")}><Grid2X2 className="h-4 w-4" />Tile catalog</Button><Button variant={view === "orders" ? "default" : "outline"} aria-pressed={view === "orders"} className="h-12" onClick={() => setView("orders")}><ShoppingBag className="h-4 w-4" />My orders<span className="text-xs">({s.orders.filter((o) => o.storeId === store.id).length})</span></Button></div>}
+        {store && <div className="mb-6 hidden gap-2 border-b border-border pb-5 sm:flex"><Button variant={view === "catalog" ? "default" : "outline"} aria-pressed={view === "catalog"} className="h-12" onClick={() => setView("catalog")}><Grid2X2 className="h-4 w-4" />Tile catalog</Button><Button variant={view === "orders" ? "default" : "outline"} aria-pressed={view === "orders"} className="h-12" onClick={() => setView("orders")}><ShoppingBag className="h-4 w-4" />My orders<span className="text-xs">({s.orders.filter((o) => o.storeId === store.id).length})</span></Button></div>}
         {view === "orders" && store ? <CustomerOrders onDetail={setDetail} /> : <>
         <div className="mb-5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3"><div className="min-w-0"><h2 className="font-display text-2xl">Explore tiles</h2><p className="mt-1 text-sm text-muted-foreground">{list.length} designs{cat !== "All" ? ` · ${cat}` : ""}</p></div>{store && <span className="flex items-center gap-2 text-xs text-primary"><Store className="h-4 w-4" /><span className="hidden sm:inline">Ready to order</span></span>}</div>
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -97,6 +98,7 @@ function Home() {
         {store && <details className="mt-8 border-t border-border pt-5"><summary className="flex cursor-pointer list-none items-center gap-2 py-2 text-sm font-semibold text-primary"><Sparkles className="h-4 w-4" />Tile advisor</summary><TileAdvisor onOrder={(p) => setDetail(p)} /></details>}
         </>}
       </main>
+      <BottomBar view={view} onView={setView} />
       {liveDetail && !ordering && <ProductDetail p={liveDetail} canOrder={!!store} onOrder={() => setOrdering(liveDetail)} onClose={() => setDetail(null)} />}
       {liveOrdering && store && <OrderDialog p={liveOrdering} onTrack={() => { setOrdering(null); setDetail(null); setView("orders"); }} onClose={() => { setOrdering(null); setDetail(null); }} />}
     </div>
