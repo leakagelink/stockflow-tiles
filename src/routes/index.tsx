@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Search, LogOut, Package, Loader2 } from "lucide-react";
+import { Search, LogOut, Package, Loader2, X } from "lucide-react";
 import { Header } from "@/components/Header";
 import { TileAdvisor } from "@/components/TileAdvisor";
 import { actions, useInventory, filterProducts, validateQty, type Product } from "@/lib/inventory";
@@ -22,6 +22,7 @@ function Home() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("All");
   const [ordering, setOrdering] = useState<Product | null>(null);
+  const [detail, setDetail] = useState<Product | null>(null);
 
   const store = s.store;
   const list = useMemo(() => filterProducts(s.products, q, cat), [s.products, q, cat]);
