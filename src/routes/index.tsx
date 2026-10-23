@@ -145,6 +145,45 @@ function AuthForm() {
   );
 }
 
+function ProductDetail({ p, canOrder, onOrder, onClose }: { p: Product; canOrder: boolean; onOrder: () => void; onClose: () => void }) {
+  const rows: [string, string][] = [
+    ["Model No.", p.model || "—"],
+    ["Category", p.category],
+    ["Size", p.size || "—"],
+    ["Price", `₹${p.price.toLocaleString("en-IN")} /peti`],
+    ["Godown Stock", p.stock === 0 ? "Out of stock" : `${p.stock} peti`],
+  ];
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-foreground/40 p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-card" onClick={(e) => e.stopPropagation()}>
+        <div className="relative h-56" style={{ background: p.color }}>
+          <div className="tile-grid absolute inset-0 opacity-40" />
+          <span className="absolute left-4 top-4 rounded-full bg-background/90 px-3 py-1 text-xs">{p.category}</span>
+          <button onClick={onClose} aria-label="Band karein" className="absolute right-4 top-4 rounded-full bg-background/90 p-2"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="p-6">
+          <h3 className="font-display text-3xl">{p.name}</h3>
+          <div className="mt-4 divide-y divide-border rounded-2xl border border-border">
+            {rows.map(([k, v]) => (
+              <div key={k} className="flex items-center justify-between px-4 py-3 text-sm">
+                <span className="text-muted-foreground">{k}</span>
+                <span className="font-medium">{v}</span>
+              </div>
+            ))}
+          </div>
+          <button
+            disabled={!canOrder || p.stock === 0}
+            onClick={onOrder}
+            className="mt-5 w-full rounded-xl bg-primary py-3 text-primary-foreground disabled:opacity-40"
+          >
+            {canOrder ? (p.stock === 0 ? "Stock khatam" : "Order Karein") : "Order ke liye login karein"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function OrderDialog({ p, onClose }: { p: Product; onClose: () => void }) {
   const [qty, setQty] = useState(1);
   const [err, setErr] = useState("");
