@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Order, Product, Store } from "./catalog";
 
 export type Catalog = {
@@ -53,14 +54,27 @@ export const getCatalog = createServerFn({ method: "GET" }).handler(async (): Pr
   };
 });
 
-/** Order placement runs inside the database: PIN check + stock deduction + order insert, atomically. */
+/** Logged-in staff member ka store (store_members se). */
+export const myStoreFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<Store | null> => {
+    const { data, error } = await context.supabase
+      .from("store_members")
+      .select("store_id, stores(id, name)")
+      .eq("user_id", context.userId)
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const st = data?.stores as { id: string; name: string } | null;
+    return st ? { id: st.id, name: st.name } : null;
+  });
+
+/** Order placement runs inside the database: store resolve + stock deduction + order insert, atomically. */
 export const placeOrderFn = createServerFn({ method: "POST" })
-  .validator((d: { storeId: string; pin: string; productId: string; qty: number }) => d)
-  .handler(async ({ data }) => {
-    const db = publicClient();
-    const { data: stock, error } = await db.rpc("place_order", {
-      p_store_id: data.storeId,
-      p_pin: data.pin,
+  .middleware([requireSupabaseAuth])
+  .validator((d: { productId: string; qty: number }) => d)
+  .handler(async ({ data, context }) => {
+    const { data: stock, error } = await context.supabase.rpc("place_order_auth", {
       p_product_id: data.productId,
       p_qty: data.qty,
     });
@@ -68,22 +82,15 @@ export const placeOrderFn = createServerFn({ method: "POST" })
     return { stock: Number(stock) };
   });
 
-export const storeLoginFn = createServerFn({ method: "POST" })
-  .validator((d: { storeId: string; pin: string }) => d)
-  .handler(async ({ data }) => {
-    const db = publicClient();
-    const { data: id, error } = await db.rpc("store_login", { p_store_id: data.storeId, p_pin: data.pin });
-    if (error) throw new Error(error.message);
-    return (id as string | null) ?? null;
-  });
-
 export type AdminPayload =
   | { op: "product_upsert"; product: Omit<Product, "id"> & { id?: string } }
   | { op: "product_delete"; id: string }
   | { op: "category_add"; name: string }
   | { op: "category_delete"; name: string }
-  | { op: "store_add"; name: string; pin: string }
-  | { op: "store_delete"; id: string };
+  | { op: "store_add"; name: string }
+  | { op: "store_delete"; id: string }
+  | { op: "member_assign"; email: string; storeId: string }
+  | { op: "member_remove"; id: string };
 
 /** Admin PIN lives in app_settings (no anon/authenticated grants) — verified server-side. */
 async function adminDb(pin: string) {
@@ -103,14 +110,24 @@ export const adminVerify = createServerFn({ method: "POST" })
     return row?.value === data.pin;
   });
 
-/** Stores tab needs PINs, which the public API never exposes — admin-only read. */
-export const adminStores = createServerFn({ method: "GET" })
+export type MemberRow = { id: string; email: string; storeId: string; storeName: string };
+
+/** Stores tab: kaunsa staff account kis store se juda hai — admin-only read. */
+export const adminMembers = createServerFn({ method: "GET" })
   .validator((d: { pin: string }) => d)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<MemberRow[]> => {
     const db = await adminDb(data.pin);
-    const { data: rows, error } = await db.from("stores").select("id,name,pin").order("created_at");
+    const { data: rows, error } = await db.from("store_members").select("id, user_id, store_id, stores(name)").order("created_at");
     if (error) throw new Error(error.message);
-    return rows ?? [];
+    const { data: users, error: uErr } = await db.auth.admin.listUsers({ perPage: 1000 });
+    if (uErr) throw new Error(uErr.message);
+    const emailById = new Map(users.users.map((u) => [u.id, u.email ?? ""]));
+    return (rows ?? []).map((r) => ({
+      id: r.id,
+      email: emailById.get(r.user_id) ?? "(unknown)",
+      storeId: r.store_id,
+      storeName: (r.stores as { name: string } | null)?.name ?? "",
+    }));
   });
 
 export const adminAction = createServerFn({ method: "POST" })
@@ -140,9 +157,21 @@ export const adminAction = createServerFn({ method: "POST" })
     } else if (p.op === "category_delete") {
       error = (await db.from("categories").delete().eq("name", p.name)).error;
     } else if (p.op === "store_add") {
-      error = (await db.from("stores").insert({ name: p.name, pin: p.pin })).error;
+      error = (await db.from("stores").insert({ name: p.name, pin: "" })).error;
     } else if (p.op === "store_delete") {
       error = (await db.from("stores").delete().eq("id", p.id)).error;
+    } else if (p.op === "member_assign") {
+      const email = p.email.trim().toLowerCase();
+      const { data: users, error: uErr } = await db.auth.admin.listUsers({ perPage: 1000 });
+      if (uErr) throw new Error(uErr.message);
+      const user = users.users.find((u) => (u.email ?? "").toLowerCase() === email);
+      if (!user) throw new Error("Is email ka koi account nahi mila — pehle staff member sign up kare");
+      // Ek staff member sirf ek store se juda hota hai
+      const del = await db.from("store_members").delete().eq("user_id", user.id);
+      if (del.error) throw new Error(del.error.message);
+      error = (await db.from("store_members").insert({ user_id: user.id, store_id: p.storeId })).error;
+    } else if (p.op === "member_remove") {
+      error = (await db.from("store_members").delete().eq("id", p.id)).error;
     }
     if (error) throw new Error(error.message);
     return { ok: true as const };
