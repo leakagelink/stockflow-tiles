@@ -24,22 +24,21 @@ export function TileAdvisor({ onOrder }: { onOrder: (p: Product) => void }) {
     try {
       const r = await run({ data: { preference: pref, room, budget: Number(budget) || 0, catalog: s.products } });
       if (r.ok) setRes(r); else setErr(r.error);
-    } catch { setErr("Suggestion nahi mil paaya, dobara try karein."); }
+    } catch { setErr("Unable to find suggestions. Please try again."); }
     finally { setBusy(false); }
   }
 
   return (
-    <section className="min-w-0 border-y border-border py-5 sm:py-6">
-      <div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /><h2 className="font-display text-2xl">AI Tile Advisor</h2></div>
-      <p className="mt-1 text-sm text-muted-foreground">Grahak ki pasand, kamra aur budget batayein — catalog se matching tiles milengi.</p>
+    <section className="min-w-0 border-border py-5 sm:py-6">
+      <div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /><h2 className="font-display text-2xl">Tile advisor</h2></div>
       <form onSubmit={submit} className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
-        <input className={inp} value={pref} onChange={(e) => setPref(e.target.value)} placeholder="Pasand: jaise light colour, marble look, glossy…" required />
+        <input className={inp} value={pref} onChange={(e) => setPref(e.target.value)} placeholder="Style preference, e.g. light marble, glossy…" required />
         <select className={inp} value={room} onChange={(e) => setRoom(e.target.value)}>
           {["Living Room", "Bedroom", "Kitchen", "Bathroom", "Outdoor / Parking", "Office"].map((r) => <option key={r}>{r}</option>)}
         </select>
-        <input className={inp} type="number" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="Budget ₹/peti" />
+        <input className={inp} type="number" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder="Budget ₹/box" />
         <Button disabled={busy} className="h-12 px-5">
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}Suggest
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}Find matches
         </Button>
       </form>
       {err && <p className="mt-3 text-sm text-destructive">{err}</p>}
@@ -52,17 +51,17 @@ export function TileAdvisor({ onOrder }: { onOrder: (p: Product) => void }) {
               if (!p) return null;
               return (
                 <div key={p.id} className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-lg border border-border p-3 sm:p-4">
-                  <div className="h-16 w-16 shrink-0 rounded-xl" style={{ background: p.color }} />
+                  <div className="h-16 w-16 shrink-0 rounded-lg" style={{ background: p.color }} />
                   <div className="min-w-0">
-                    <p className="font-mono text-xs text-muted-foreground">{p.model} · ₹{p.price} · {p.stock} peti</p>
+                    <p className="font-mono text-xs text-muted-foreground">{p.model} · ₹{p.price} · {p.stock} boxes</p>
                     <p className="font-semibold">{p.name}</p>
                     <p className="text-sm text-muted-foreground">{pk.reason}</p>
-                    <Button variant="link" onClick={() => onOrder(p)} className="mt-1 h-11 px-0 underline">Order karein</Button>
+                    <Button variant="link" onClick={() => onOrder(p)} className="mt-1 h-11 px-0 underline">View details</Button>
                   </div>
                 </div>
               );
             })}
-            {res.picks.length === 0 && <p className="text-sm text-muted-foreground">Catalog mein koi matching tile nahi mili.</p>}
+            {res.picks.length === 0 && <p className="text-sm text-muted-foreground">No matching tiles available.</p>}
           </div>
         </div>
       )}

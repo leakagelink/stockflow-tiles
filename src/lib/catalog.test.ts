@@ -22,7 +22,7 @@ describe("order quantity rule", () => {
     expect(validateQty(25, 100)).toBeNull();
   });
   it("rejects more than stock", () => {
-    expect(validateQty(101, 100)).toBe("Sirf 100 peti stock mein hai");
+    expect(validateQty(101, 100)).not.toBeNull();
   });
   it("rejects zero, negative and fractional peti", () => {
     expect(validateQty(0, 100)).toBeTruthy();

@@ -24,14 +24,14 @@ export const suggestTiles = createServerFn({ method: "POST" })
       apiKey,
       headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
     });
-    const catalog = data.catalog.filter((p) => p.stock > 0).map((p) => `${p.id} | ${p.name} | ${p.model} | ${p.category} | ${p.size} | ₹${p.price}/peti | stock ${p.stock}`).join("\n");
+    const catalog = data.catalog.filter((p) => p.stock > 0).map((p) => `${p.id} | ${p.name} | ${p.model} | ${p.category} | ${p.size} | ₹${p.price}/box | stock ${p.stock}`).join("\n");
     try {
       const result = streamText({
         model: provider.responses("openai/gpt-6-astra"),
         maxRetries: 0,
         output: Output.object({ schema }),
-        system: "You are a tile showroom expert. Recommend up to 4 tiles ONLY from the given catalog (use exact ids in the id field, but never write ids in summary or reason — use tile names). Respect the budget per peti, room suitability (e.g. anti-skid for bathrooms/outdoor). Reply in simple Hinglish.",
-        prompt: `Customer preference: ${data.preference}\nRoom: ${data.room}\nBudget per peti (₹): ${data.budget || "not given"}\n\nCatalog:\n${catalog}`,
+        system: "You are a tile showroom expert. Recommend up to 4 tiles ONLY from the given catalog (use exact ids in the id field, but never write ids in summary or reason — use tile names). Respect the budget per box, room suitability (e.g. anti-skid for bathrooms/outdoor). Reply only in concise professional English. Do not claim technical specifications that are not stated in the catalog.",
+        prompt: `Customer preference: ${data.preference}\nRoom: ${data.room}\nBudget per box (₹): ${data.budget || "not given"}\n\nCatalog:\n${catalog}`,
         providerOptions: { openai: { forceReasoning: true, reasoningEffort: "low", store: false, include: ["reasoning.encrypted_content"] } },
       });
       const out = await result.output;
@@ -40,8 +40,8 @@ export const suggestTiles = createServerFn({ method: "POST" })
     } catch (e) {
       const status = (e as { statusCode?: number }).statusCode;
       console.error("suggestTiles failed", status, e);
-      if (status === 402) return { ok: false as const, error: "AI credits khatam ho gaye hain. Credits add karke dobara try karein." };
-      if (status === 429) return { ok: false as const, error: "Abhi bahut requests hain, thodi der baad try karein." };
-      return { ok: false as const, error: "Suggestion nahi mil paaya, dobara try karein." };
+      if (status === 402) return { ok: false as const, error: "AI credits are unavailable. Please try again later." };
+      if (status === 429) return { ok: false as const, error: "Too many requests. Please try again shortly." };
+      return { ok: false as const, error: "Unable to find suggestions. Please try again." };
     }
   });

@@ -12,7 +12,7 @@ export function filterProducts(products: Product[], q: string, cat: string): Pro
 
 /** Pure rule: order quantity must be a whole number of peti and cannot exceed godown stock. */
 export function validateQty(qty: number, stock: number): string | null {
-  if (!Number.isInteger(qty) || qty <= 0) return "Sahi quantity (peti) daalein";
-  if (qty > stock) return `Sirf ${stock} peti stock mein hai`;
+  if (!Number.isInteger(qty) || qty <= 0) return "Enter a positive whole number of boxes.";
+  if (qty > stock) return `Only ${stock} boxes available.`;
   return null;
 }
