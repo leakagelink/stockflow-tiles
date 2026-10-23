@@ -144,6 +144,22 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: "Manrope", system-ui, sans-serif;
+    min-width: 320px;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Keep form controls legible without triggering mobile browser zoom. */
+@media (max-width: 767px) {
+  input, select, textarea { font-size: 16px; }
+}
+
+button, a, input, select, textarea { touch-action: manipulation; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
