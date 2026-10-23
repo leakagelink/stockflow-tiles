@@ -10,7 +10,7 @@ const schema = z.object({
 });
 
 export const suggestTiles = createServerFn({ method: "POST" })
-  .inputValidator((d: Input) => {
+  .validator((d: Input) => {
     if (!d || typeof d.room !== "string" || !Array.isArray(d.catalog)) throw new Error("Invalid input");
     return { ...d, preference: d.preference.slice(0, 1000), room: d.room.slice(0, 200), catalog: d.catalog.slice(0, 300) };
   })
