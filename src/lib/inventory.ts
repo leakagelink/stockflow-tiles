@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { adminAction, adminMembers, adminVerify, getCatalog, myStoreFn, myOrdersFn, placeOrderFn, type AdminPayload } from "./api.functions";
+import { adminAction, adminMembers, adminUsers, adminVerify, getCatalog, myStoreFn, myOrdersFn, placeOrderFn, type AdminPayload } from "./api.functions";
 import type { Order, OrderStatus, Product, Store } from "./catalog";
 
 export type { Order, Product, Store } from "./catalog";
@@ -114,6 +114,8 @@ export const actions = {
   verifyAdmin: () => adminVerify(),
   /** Admin-only: staff accounts mapped to stores. */
   fetchMembers: () => adminMembers(),
+  /** Admin-only: saare registered users, roles aur store mapping. */
+  fetchUsers: () => adminUsers(),
 };
 
 async function adminRun(payload: AdminPayload) {
@@ -129,8 +131,10 @@ export const adminOps = {
     if (!c.trim()) return;
     await adminRun({ op: "category_add", name: c.trim() });
   },
+  renameCategory: (oldName: string, newName: string) => adminRun({ op: "category_rename", oldName, newName }),
   deleteCategory: (c: string) => adminRun({ op: "category_delete", name: c }),
   addStore: (name: string) => adminRun({ op: "store_add", name }),
+  renameStore: (id: string, name: string) => adminRun({ op: "store_rename", id, name }),
   deleteStore: (id: string) => adminRun({ op: "store_delete", id }),
   assignMember: (email: string, storeId: string) => adminRun({ op: "member_assign", email, storeId }),
   removeMember: (id: string) => adminRun({ op: "member_remove", id }),

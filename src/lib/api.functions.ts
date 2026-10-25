@@ -102,8 +102,10 @@ export type AdminPayload =
   | { op: "product_upsert"; product: Omit<Product, "id"> & { id?: string } }
   | { op: "product_delete"; id: string }
   | { op: "category_add"; name: string }
+  | { op: "category_rename"; oldName: string; newName: string }
   | { op: "category_delete"; name: string }
   | { op: "store_add"; name: string }
+  | { op: "store_rename"; id: string; name: string }
   | { op: "store_delete"; id: string }
   | { op: "member_assign"; email: string; storeId: string }
   | { op: "member_remove"; id: string };
@@ -145,6 +147,35 @@ export const adminMembers = createServerFn({ method: "GET" })
     }));
   });
 
+export type UserRow = { id: string; email: string; createdAt: string; lastSignIn: string | null; isAdmin: boolean; storeName: string };
+
+/** Users tab: saare registered accounts, unka role aur store — admin-only read. */
+export const adminUsers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<UserRow[]> => {
+    const db = await adminDb(context.supabase, context.userId);
+    const { data: users, error: uErr } = await db.auth.admin.listUsers({ perPage: 1000 });
+    if (uErr) throw new Error(uErr.message);
+    const [roles, members] = await Promise.all([
+      db.from("user_roles").select("user_id, role"),
+      db.from("store_members").select("user_id, stores(name)"),
+    ]);
+    if (roles.error) throw new Error(roles.error.message);
+    if (members.error) throw new Error(members.error.message);
+    const adminIds = new Set((roles.data ?? []).filter((r) => r.role === "admin").map((r) => r.user_id));
+    const storeByUser = new Map((members.data ?? []).map((m) => [m.user_id, (m.stores as { name: string } | null)?.name ?? ""]));
+    return users.users
+      .map((u) => ({
+        id: u.id,
+        email: u.email ?? "(no email)",
+        createdAt: u.created_at,
+        lastSignIn: u.last_sign_in_at ?? null,
+        isAdmin: adminIds.has(u.id),
+        storeName: storeByUser.get(u.id) ?? "",
+      }))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  });
+
 export const adminAction = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d: { payload: AdminPayload }) => d)
@@ -172,10 +203,22 @@ export const adminAction = createServerFn({ method: "POST" })
       error = (await db.from("products").delete().eq("id", p.id)).error;
     } else if (p.op === "category_add") {
       error = (await db.from("categories").insert({ name: p.name })).error;
+    } else if (p.op === "category_rename") {
+      const newName = p.newName.trim();
+      if (!newName) throw new Error("Category name is required.");
+      error = (await db.from("categories").update({ name: newName }).eq("name", p.oldName)).error;
+      // Products category text rakhte hain — rename ke saath unhe bhi update karo
+      if (!error) await db.from("products").update({ category: newName }).eq("category", p.oldName);
     } else if (p.op === "category_delete") {
       error = (await db.from("categories").delete().eq("name", p.name)).error;
     } else if (p.op === "store_add") {
       error = (await db.from("stores").insert({ name: p.name, pin: "" })).error;
+    } else if (p.op === "store_rename") {
+      const name = p.name.trim();
+      if (!name) throw new Error("Store name is required.");
+      error = (await db.from("stores").update({ name }).eq("id", p.id)).error;
+      // Orders mein store_name snapshot hai — rename ke saath sync karo
+      if (!error) await db.from("orders").update({ store_name: name }).eq("store_id", p.id);
     } else if (p.op === "store_delete") {
       error = (await db.from("stores").delete().eq("id", p.id)).error;
     } else if (p.op === "member_assign") {
