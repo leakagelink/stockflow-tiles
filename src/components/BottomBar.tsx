@@ -1,4 +1,4 @@
-import { Grid2X2, ShoppingBag, LogOut, LogIn } from "lucide-react";
+import { Grid2X2, ShoppingBag, LogOut } from "lucide-react";
 import { actions, useInventory } from "@/lib/inventory";
 
 export function BottomBar({ view, onView }: { view: "catalog" | "orders"; onView: (v: "catalog" | "orders") => void }) {
@@ -8,10 +8,6 @@ export function BottomBar({ view, onView }: { view: "catalog" | "orders"; onView
   const base = "flex min-h-14 flex-1 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg text-[0.6875rem] font-medium leading-tight";
   const active = "text-primary";
   const idle = "text-muted-foreground";
-
-  function scrollToAuth() {
-    document.getElementById("auth")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
 
   return (
     <nav aria-label="Bottom navigation" className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden">
@@ -25,13 +21,9 @@ export function BottomBar({ view, onView }: { view: "catalog" | "orders"; onView
             {orderCount > 0 && <span className="absolute right-3 top-1 rounded-full bg-primary px-1.5 text-[0.625rem] font-semibold text-primary-foreground">{orderCount}</span>}
           </button>
         )}
-        {s.userEmail ? (
+        {s.userEmail && (
           <button type="button" onClick={() => void actions.signOut()} className={`${base} ${idle}`}>
             <LogOut className="h-5 w-5" />Sign out
-          </button>
-        ) : (
-          <button type="button" onClick={scrollToAuth} className={`${base} ${idle}`}>
-            <LogIn className="h-5 w-5" />Sign in
           </button>
         )}
       </div>

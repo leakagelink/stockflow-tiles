@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Search, Package, Loader2, ArrowUpRight, Store, Boxes, Sparkles, Grid2X2, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,15 @@ function Home() {
   const list = useMemo(() => filterProducts(s.products, q, cat), [s.products, q, cat]);
   const total = s.products.reduce((a, p) => a + p.stock, 0);
 
+  if (s.loading && !s.userEmail) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+  if (!s.userEmail) return <Navigate to="/auth" replace />;
+
   return (
     <div className="min-h-screen pb-[4.25rem] sm:pb-0">
       <Header />
@@ -55,8 +64,7 @@ function Home() {
         <div className="mb-7 grid grid-cols-3 divide-x divide-border border-b border-border pb-6">
           <Stat n={s.products.length} l="Tile designs" /><Stat n={total} l="Boxes available" /><Stat n={s.stores.length} l="Stores" />
         </div>
-        {!s.userEmail && <section id="auth" className="mb-8 scroll-mt-20 border-b border-border pb-6"><AuthForm /></section>}
-        {s.userEmail && !store && <p className="mb-6 rounded-lg border border-warning bg-warning/15 p-4 text-sm">Store assignment pending. Contact your store manager to start ordering.</p>}
+        {!store && <p className="mb-6 rounded-lg border border-warning bg-warning/15 p-4 text-sm">Store assignment pending. Contact your store manager to start ordering.</p>}
         {store && <div className="mb-6 hidden gap-2 border-b border-border pb-5 sm:flex"><Button variant={view === "catalog" ? "default" : "outline"} aria-pressed={view === "catalog"} className="h-12" onClick={() => setView("catalog")}><Grid2X2 className="h-4 w-4" />Tile catalog</Button><Button variant={view === "orders" ? "default" : "outline"} aria-pressed={view === "orders"} className="h-12" onClick={() => setView("orders")}><ShoppingBag className="h-4 w-4" />My orders<span className="text-xs">({s.orders.filter((o) => o.storeId === store.id).length})</span></Button></div>}
         {view === "orders" && store ? <CustomerOrders onDetail={setDetail} /> : <>
         <div className="mb-5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3"><div className="min-w-0"><h2 className="font-display text-2xl">Explore tiles</h2><p className="mt-1 text-sm text-muted-foreground">{list.length} designs{cat !== "All" ? ` · ${cat}` : ""}</p></div>{store && <span className="flex items-center gap-2 text-xs text-primary"><Store className="h-4 w-4" /><span className="hidden sm:inline">Ready to order</span></span>}</div>
@@ -107,40 +115,6 @@ function Home() {
 
 function Stat({ n, l }: { n: number; l: string }) {
   return <div className="min-w-0 px-3 first:pl-0 sm:px-6"><p className="font-display text-2xl sm:text-3xl">{n.toLocaleString("en-IN")}</p><p className="text-xs uppercase text-muted-foreground">{l}</p></div>;
-}
-
-function AuthForm() {
-  const [mode, setMode] = useState<"in" | "up">("in");
-  const [email, setEmail] = useState("");
-  const [pass, setPass] = useState("");
-  const [err, setErr] = useState("");
-  const [info, setInfo] = useState("");
-  const [busy, setBusy] = useState(false);
-  return (
-    <form onSubmit={async (e) => {
-      e.preventDefault();
-      if (busy) return;
-      setBusy(true); setErr(""); setInfo("");
-      try {
-        if (mode === "in") {
-          await actions.signIn(email, pass);
-        } else {
-          const needsConfirm = await actions.signUp(email, pass);
-          if (needsConfirm) setInfo("Account created. Check your email to confirm your account, then sign in.");
-        }
-      } catch (x) { setErr((x as Error).message); }
-      finally { setBusy(false); }
-    }}>
-      <div className="mb-4 flex items-center justify-between gap-3"><h2 className="font-display text-xl">{mode === "in" ? "Customer sign in" : "Create customer account"}</h2><Button variant="link" type="button" onClick={() => { setMode(mode === "in" ? "up" : "in"); setErr(""); setInfo(""); }} className="h-11 shrink-0 px-0">{mode === "in" ? "Create account" : "Sign in instead"}</Button></div>
-      <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-        <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" aria-label="Email" required placeholder="Email address" className="min-w-0 w-full rounded-lg border border-input bg-card p-3" />
-        <input value={pass} onChange={(e) => setPass(e.target.value)} type="password" autoComplete={mode === "in" ? "current-password" : "new-password"} aria-label="Password" required minLength={6} placeholder="Password" className="min-w-0 w-full rounded-lg border border-input bg-card p-3" />
-        <Button disabled={busy} className="h-12 px-6">{busy && <Loader2 className="h-4 w-4 animate-spin" />}{mode === "in" ? "Sign In" : "Create account"}<ArrowUpRight className="h-4 w-4" /></Button>
-      </div>
-      {err && <p className="mt-3 text-sm text-destructive">{err}</p>}
-      {info && <p className="mt-3 text-sm text-primary">{info}</p>}
-    </form>
-  );
 }
 
 function ProductDetail({ p, canOrder, onOrder, onClose }: { p: Product; canOrder: boolean; onOrder: () => void; onClose: () => void }) {
