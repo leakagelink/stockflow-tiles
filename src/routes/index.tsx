@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Search, Package, Loader2, ArrowUpRight, Store, Boxes, Sparkles, Grid2X2, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,15 @@ function Home() {
   const list = useMemo(() => filterProducts(s.products, q, cat), [s.products, q, cat]);
   const total = s.products.reduce((a, p) => a + p.stock, 0);
 
+  if (s.loading && !s.userEmail) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+  if (!s.userEmail) return <Navigate to="/auth" replace />;
+
   return (
     <div className="min-h-screen pb-[4.25rem] sm:pb-0">
       <Header />
@@ -55,8 +64,7 @@ function Home() {
         <div className="mb-7 grid grid-cols-3 divide-x divide-border border-b border-border pb-6">
           <Stat n={s.products.length} l="Tile designs" /><Stat n={total} l="Boxes available" /><Stat n={s.stores.length} l="Stores" />
         </div>
-        {!s.userEmail && <section id="auth" className="mb-8 scroll-mt-20 border-b border-border pb-6"><AuthForm /></section>}
-        {s.userEmail && !store && <p className="mb-6 rounded-lg border border-warning bg-warning/15 p-4 text-sm">Store assignment pending. Contact your store manager to start ordering.</p>}
+        {!store && <p className="mb-6 rounded-lg border border-warning bg-warning/15 p-4 text-sm">Store assignment pending. Contact your store manager to start ordering.</p>}
         {store && <div className="mb-6 hidden gap-2 border-b border-border pb-5 sm:flex"><Button variant={view === "catalog" ? "default" : "outline"} aria-pressed={view === "catalog"} className="h-12" onClick={() => setView("catalog")}><Grid2X2 className="h-4 w-4" />Tile catalog</Button><Button variant={view === "orders" ? "default" : "outline"} aria-pressed={view === "orders"} className="h-12" onClick={() => setView("orders")}><ShoppingBag className="h-4 w-4" />My orders<span className="text-xs">({s.orders.filter((o) => o.storeId === store.id).length})</span></Button></div>}
         {view === "orders" && store ? <CustomerOrders onDetail={setDetail} /> : <>
         <div className="mb-5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3"><div className="min-w-0"><h2 className="font-display text-2xl">Explore tiles</h2><p className="mt-1 text-sm text-muted-foreground">{list.length} designs{cat !== "All" ? ` · ${cat}` : ""}</p></div>{store && <span className="flex items-center gap-2 text-xs text-primary"><Store className="h-4 w-4" /><span className="hidden sm:inline">Ready to order</span></span>}</div>
